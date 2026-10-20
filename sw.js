@@ -4,7 +4,7 @@
      ob es auf GitHub eine neue Version gibt (wirkt beim nächsten Öffnen).
    - Anfragen an die Nextcloud (Sync) werden NICHT angefasst.
    CACHE wird von build.py bei jeder Änderung neu berechnet. */
-const CACHE = 'meapp-587721e777';
+const CACHE = 'meapp-809844df9c';
 const FILES = [
  "icons/apple-touch-icon.png",
  "icons/icon-192.png",

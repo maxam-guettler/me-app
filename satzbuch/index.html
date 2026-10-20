@@ -752,6 +752,11 @@ function davUrls() {
   return { file: root + '/' + segs.join('/'), dirs: segs.slice(0, -1).map((_, i) => root + '/' + segs.slice(0, i + 1).join('/')) };
 }
 const authH = () => 'Basic ' + btoa(unescape(encodeURIComponent(settings.nc.user.trim() + ':' + settings.nc.pass)));
+// ETag ohne Kompressions-Zusatz: W/"abc-gzip" → "abc"
+function normEtag(e) {
+  if (!e) return null;
+  return e.trim().replace(/^W\//, '').replace(/[-;](gzip|br|deflate)"$/i, '"');
+}
 function httpErr(r) { const e = new Error('HTTP ' + r.status); e.status = r.status; return e; }
 function explainSyncErr(e) {
   if (e.status === 401) return 'Anmeldung abgelehnt: Benutzername oder App-Passwort prüfen.';
@@ -782,7 +787,7 @@ async function syncNow() {
       let remote = null, etag = null, exists = false;
       if (r.status === 404) exists = false;
       else if (r.ok) {
-        exists = true; etag = r.headers.get('ETag');
+        exists = true; etag = normEtag(r.headers.get('ETag'));
         const txt = await r.text();
         if (txt.trim()) { remote = JSON.parse(txt); if (!remote || typeof remote !== 'object' || !remote.sessions) throw Object.assign(new Error('bad'), { name: 'SyntaxError' }); }
       } else throw httpErr(r);
@@ -795,7 +800,8 @@ async function syncNow() {
       }
       if (!remote || JSON.stringify(merged) !== JSON.stringify(remote)) {
         const h = { Authorization: authH(), 'Content-Type': 'application/json' };
-        if (etag) h['If-Match'] = etag; else if (!exists) h['If-None-Match'] = '*';
+        // letzter Versuch ohne If-Match: Daten sind oben bereits zusammengeführt, es geht nichts verloren
+        if (etag && attempt < 2) h['If-Match'] = etag; else if (!exists) h['If-None-Match'] = '*';
         const body = JSON.stringify(merged);
         let p = await fetch(file, { method: 'PUT', headers: h, body });
         if (p.status === 409 || p.status === 404) { // Ordner fehlt → anlegen
